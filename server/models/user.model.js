@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
         },
         avatar: {
             type: String,
-            default: "https://via.placeholder.com/150",
+            default: null,
         },
         role: {
             type: String,
@@ -72,6 +72,6 @@ userSchema.methods.generateRefreshToken = function () {
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN }
     );
-}
+};
 
 export const User = mongoose.model("User", userSchema);

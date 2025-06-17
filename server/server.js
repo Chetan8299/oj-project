@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./database/index.js";
 import cookieParser from "cookie-parser";
+import morgan from "morgan";
 
 dotenv.config();
 
@@ -10,9 +11,15 @@ const PORT = process.env.PORT || 5000;
 
 const app = express();
 
-app.use(cors());
+app.use(
+    cors({
+        origin: process.env.CLIENT_URL,
+        credentials: true,
+    })
+);
 app.use(express.json());
 app.use(cookieParser());
+app.use(morgan("dev"));
 
 // Import Routes
 import userRoutes from "./routes/user.routes.js";

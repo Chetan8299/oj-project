@@ -1,8 +1,8 @@
-import { User } from "../models/user.model";
-import ApiResponse from "../utils/ApiResponse";
-import asyncHandler from "../utils/asyncHandler";
-import ApiError from "../utils/ApiError";
-import { COOKIE_OPTIONS } from "../utils/constants";
+import { User } from "../models/user.model.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import asyncHandler from "../utils/asyncHandler.js";
+import ApiError from "../utils/ApiError.js";
+import { COOKIE_OPTIONS } from "../utils/constants.js";
 
 const generateAccessAndRefreshToken = async (user) => {
     try {
