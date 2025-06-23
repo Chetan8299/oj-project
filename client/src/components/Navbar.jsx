@@ -58,6 +58,12 @@ const Navbar = () => {
                                 >
                                     Submissions
                                 </Link>
+                                <Link
+                                    to="/create-problem"
+                                    className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                >
+                                    Create Problem
+                                </Link>
                             </>
                         )}
                     </div>
@@ -66,11 +72,14 @@ const Navbar = () => {
                     <div className="flex items-center space-x-4">
                         {isAuthenticated ? (
                             <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2">
+                                <Link
+                                    to="/profile"
+                                    className="flex items-center space-x-2 hover:bg-slate-50 px-3 py-2 rounded-md transition-colors"
+                                >
                                     <img
                                         src={
                                             user?.avatar ||
-                                            "https://via.placeholder.com/32"
+                                            "https://images.unsplash.com/photo-1740252117012-bb53ad05e370?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                                         }
                                         alt={user?.name || "User"}
                                         className="w-8 h-8 rounded-full border border-slate-300"
@@ -78,7 +87,7 @@ const Navbar = () => {
                                     <span className="text-slate-700 text-sm font-medium hidden sm:block">
                                         {user?.name || user?.username}
                                     </span>
-                                </div>
+                                </Link>
                                 <button
                                     onClick={handleLogout}
                                     className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"

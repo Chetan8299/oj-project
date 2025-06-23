@@ -23,9 +23,12 @@ const Home = () => {
                         >
                             Start Practicing
                         </Link>
-                        <button className="border border-slate-300 hover:border-slate-400 text-slate-700 px-8 py-3 rounded-lg text-lg font-medium transition-colors">
+                        <Link
+                            to="/problems"
+                            className="border border-slate-300 hover:border-slate-400 text-slate-700 px-8 py-3 rounded-lg text-lg font-medium transition-colors inline-block text-center"
+                        >
                             View Problems
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>

@@ -23,9 +23,11 @@ app.use(morgan("dev"));
 
 // Import Routes
 import userRoutes from "./routes/user.routes.js";
+import problemRoutes from "./routes/problem.routes.js";
 
 // Routes
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/problems", problemRoutes);
 
 connectDB()
     .then(() => {

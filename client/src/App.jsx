@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Home, Login, Signup } from "./pages";
+import { Home, Login, Signup, Profile, CreateProblem, Problems } from "./pages";
 
 const App = () => {
     return (
@@ -9,6 +9,9 @@ const App = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/create-problem" element={<CreateProblem />} />
+                <Route path="/problems" element={<Problems />} />
             </Routes>
         </BrowserRouter>
     );

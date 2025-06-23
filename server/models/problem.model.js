@@ -51,6 +51,11 @@ const problemSchema = new mongoose.Schema({
             },
         ],
     },
+    setter: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+    },
 });
 
 export const Problem = mongoose.model("Problem", problemSchema);

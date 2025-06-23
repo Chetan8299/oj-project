@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 const useApiCall = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const execute = async (apiFunction, onSuccess, onError) => {
+    const execute = useCallback(async (apiFunction, onSuccess, onError) => {
         setLoading(true);
         setError("");
 
@@ -27,7 +27,7 @@ const useApiCall = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []); // Empty dependency array since the function doesn't depend on any props or state
 
     const clearError = () => setError("");
 

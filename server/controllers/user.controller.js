@@ -89,6 +89,40 @@ const userController = {
             .clearCookie("accessToken", COOKIE_OPTIONS)
             .json(new ApiResponse(200, null, "Logout Successfully"));
     }),
+
+    getUser: asyncHandler(async (req, res) => {
+        const user = await User.findById(req.user._id).select(
+            "-password -refreshToken"
+        );
+
+        if (!user) {
+            throw new ApiError(404, "User not found");
+        }
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, user, "User fetched Successfully"));
+    }),
+
+    updateUser: asyncHandler(async (req, res) => {
+        const { name, username, email, avatar } = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            throw new ApiError(404, "User not found");
+        }
+
+        user.name = name || user.name;
+        user.username = username || user.username;
+        user.email = email || user.email;
+        user.avatar = avatar || user.avatar;
+
+        await user.save();
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, user, "User updated Successfully"));
+    }),
 };
 
 export default userController;
