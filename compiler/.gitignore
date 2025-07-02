@@ -1,0 +1,21 @@
+node_modules/
+.env
+temp/
+*.log
+.DS_Store
+dist/
+build/
+
+# Compiled files
+*.class
+*.exe
+*.out
+*.o
+*.so
+
+# Language specific
+__pycache__/
+*.pyc
+*.pyo
+target/
+.cargo/ 
