@@ -1,12 +1,11 @@
 import axios, { compilerAxios } from "../utils/axios";
 import ApiRoutes from "../routes/routes";
 
+const API_URL = "/api/v1/problems";
+
 const problemService = {
     createProblem: async (problemData) => {
-        const response = await axios.post(
-            ApiRoutes.problems.create,
-            problemData
-        );
+        const response = await axios.post(API_URL, problemData);
         return response.data;
     },
 
@@ -34,6 +33,24 @@ const problemService = {
             language,
             input,
         });
+        return response.data;
+    },
+
+    submitSolution: async ({ problemId, code, language }) => {
+        const response = await axios.post(
+            ApiRoutes.problems.submit(problemId),
+            {
+                code,
+                language,
+            }
+        );
+        return response.data;
+    },
+
+    getProblemSubmissions: async (problemId) => {
+        const response = await axios.get(
+            ApiRoutes.problems.getSubmissions(problemId)
+        );
         return response.data;
     },
 };

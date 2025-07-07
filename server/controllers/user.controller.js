@@ -1,4 +1,5 @@
 import { User } from "../models/user.model.js";
+import { Submission } from "../models/submission.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
@@ -99,9 +100,64 @@ const userController = {
             throw new ApiError(404, "User not found");
         }
 
+        // Get submission statistics
+        const submissionStats = await Submission.aggregate([
+            { $match: { user: user._id } },
+            {
+                $group: {
+                    _id: null,
+                    totalSubmissions: { $sum: 1 },
+                    acceptedSubmissions: {
+                        $sum: {
+                            $cond: [{ $eq: ["$status", "Accepted"] }, 1, 0],
+                        },
+                    },
+                    // Count unique problems solved
+                    uniqueProblemsSolved: {
+                        $addToSet: {
+                            $cond: [
+                                { $eq: ["$status", "Accepted"] },
+                                "$problem",
+                                null,
+                            ],
+                        },
+                    },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    totalSubmissions: 1,
+                    acceptedSubmissions: 1,
+                    problemsSolved: {
+                        $size: {
+                            $filter: {
+                                input: "$uniqueProblemsSolved",
+                                as: "problem",
+                                cond: { $ne: ["$$problem", null] },
+                            },
+                        },
+                    },
+                },
+            },
+        ]);
+
+        const stats = submissionStats[0] || {
+            totalSubmissions: 0,
+            acceptedSubmissions: 0,
+            problemsSolved: 0,
+        };
+
+        const userResponse = {
+            ...user.toObject(),
+            stats,
+        };
+
         return res
             .status(200)
-            .json(new ApiResponse(200, user, "User fetched Successfully"));
+            .json(
+                new ApiResponse(200, userResponse, "User fetched Successfully")
+            );
     }),
 
     updateUser: asyncHandler(async (req, res) => {

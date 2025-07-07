@@ -6,6 +6,9 @@ const router = Router();
 // Execute code
 router.post("/execute", compilerController.executeCode);
 
+// Execute test cases
+router.post("/execute-tests", compilerController.executeTestCases);
+
 // Check supported languages
 router.get("/languages", compilerController.getSupportedLanguages);
 

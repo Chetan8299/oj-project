@@ -44,26 +44,28 @@ const Navbar = () => {
                         >
                             Home
                         </Link>
+                        <Link
+                            to="/problems"
+                            className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                        >
+                            Problems
+                        </Link>
                         {isAuthenticated && (
                             <>
-                                <Link
-                                    to="/problems"
-                                    className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                                >
-                                    Problems
-                                </Link>
-                                <Link
+                                {/* <Link
                                     to="/submissions"
                                     className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                                 >
-                                    Submissions
-                                </Link>
-                                <Link
-                                    to="/create-problem"
-                                    className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
-                                >
-                                    Create Problem
-                                </Link>
+                                    My Submissions
+                                </Link> */}
+                                {user?.role === "admin" && (
+                                    <Link
+                                        to="/create-problem"
+                                        className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        Create Problem
+                                    </Link>
+                                )}
                             </>
                         )}
                     </div>

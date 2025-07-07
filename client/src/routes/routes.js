@@ -13,7 +13,13 @@ const ApiRoutes = {
         getAll: "/api/v1/problems",
         getById: (id) => `/api/v1/problems/${id}`,
         update: (id) => `/api/v1/problems/${id}`,
-        execute: "/api/v1/compiler/execute"
+        submit: (id) => `/api/v1/problems/${id}/submit`,
+        getSubmissions: (id) => `/api/v1/problems/${id}/submissions`,
+    },
+    compiler: {
+        execute: "/api/v1/compiler/execute",
+        executeTests: "/api/v1/compiler/execute-tests",
+        languages: "/api/v1/compiler/languages",
     },
 };
 

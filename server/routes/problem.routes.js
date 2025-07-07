@@ -4,9 +4,18 @@ import { verifyAccessToken } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.route("/").post(verifyAccessToken, problemController.createProblem);
-router.route("/").get(problemController.getProblems);
-router.route("/:id").get(problemController.getProblemById);
-router.route("/:id").put(verifyAccessToken, problemController.updateProblem);
+// Public routes
+router.get("/", problemController.getProblems);
+router.get("/:id", problemController.getProblemById);
+
+// Protected routes
+router.post("/", verifyAccessToken, problemController.createProblem);
+router.put("/:id", verifyAccessToken, problemController.updateProblem);
+router.post("/:id/submit", verifyAccessToken, problemController.submitSolution);
+router.get(
+    "/:id/submissions",
+    verifyAccessToken,
+    problemController.getProblemSubmissions
+);
 
 export default router;

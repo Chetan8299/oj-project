@@ -7,13 +7,11 @@ import problemService from "../services/problemService";
 const Problems = () => {
     const { loading, error, execute } = useApiCall();
     const [problems, setProblems] = useState([]);
-    const [filteredProblems, setFilteredProblems] = useState([]);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedDifficulty, setSelectedDifficulty] = useState("All");
-    const [selectedTag, setSelectedTag] = useState("All");
-
-    // Get unique tags from all problems
-    const allTags = [...new Set(problems.flatMap((problem) => problem.tags))];
+    const [filters, setFilters] = useState({
+        difficulty: "all",
+        status: "all",
+        search: "",
+    });
 
     useEffect(() => {
         const fetchProblems = async () => {
@@ -22,7 +20,6 @@ const Problems = () => {
                 (response) => {
                     if (response.success) {
                         setProblems(response.data);
-                        setFilteredProblems(response.data);
                     }
                 }
             );
@@ -31,49 +28,81 @@ const Problems = () => {
         fetchProblems();
     }, [execute]);
 
-    // Filter problems based on search term, difficulty, and tag
-    useEffect(() => {
-        let filtered = problems;
-
-        if (searchTerm) {
-            filtered = filtered.filter(
-                (problem) =>
-                    problem.title
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase()) ||
-                    problem.description
-                        .toLowerCase()
-                        .includes(searchTerm.toLowerCase())
-            );
-        }
-
-        if (selectedDifficulty !== "All") {
-            filtered = filtered.filter(
-                (problem) => problem.difficulty === selectedDifficulty
-            );
-        }
-
-        if (selectedTag !== "All") {
-            filtered = filtered.filter((problem) =>
-                problem.tags.includes(selectedTag)
-            );
-        }
-
-        setFilteredProblems(filtered);
-    }, [problems, searchTerm, selectedDifficulty, selectedTag]);
-
     const getDifficultyColor = (difficulty) => {
         switch (difficulty) {
             case "Easy":
-                return "text-green-600 bg-green-100";
+                return "text-green-500";
             case "Medium":
-                return "text-yellow-600 bg-yellow-100";
+                return "text-yellow-500";
             case "Hard":
-                return "text-red-600 bg-red-100";
+                return "text-red-500";
             default:
-                return "text-gray-600 bg-gray-100";
+                return "text-gray-500";
         }
     };
+
+    const getStatusIcon = (status) => {
+        switch (status) {
+            case "Solved":
+                return (
+                    <svg
+                        className="w-5 h-5 text-green-500"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                    >
+                        <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                );
+            case "Attempted":
+                return (
+                    <svg
+                        className="w-5 h-5 text-yellow-500"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                    >
+                        <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                );
+            default:
+                return (
+                    <svg
+                        className="w-5 h-5 text-gray-300"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                    >
+                        <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z"
+                            clipRule="evenodd"
+                        />
+                    </svg>
+                );
+        }
+    };
+
+    const filteredProblems = problems.filter((problem) => {
+        if (
+            filters.difficulty !== "all" &&
+            problem.difficulty !== filters.difficulty
+        )
+            return false;
+        if (filters.status !== "all" && problem.status !== filters.status)
+            return false;
+        if (
+            filters.search &&
+            !problem.title.toLowerCase().includes(filters.search.toLowerCase())
+        )
+            return false;
+        return true;
+    });
 
     if (loading) {
         return (
@@ -85,206 +114,143 @@ const Problems = () => {
         );
     }
 
+    if (error) {
+        return (
+            <Layout>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="bg-red-50 border border-red-200 text-red-600 rounded-lg p-4">
+                        {error}
+                    </div>
+                </div>
+            </Layout>
+        );
+    }
+
     return (
         <Layout>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                                Problems
-                            </h1>
-                            <p className="text-slate-600">
-                                Practice coding problems to improve your
-                                algorithmic skills
-                            </p>
-                        </div>
-                        <Link
-                            to="/create-problem"
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                        >
-                            + Create Problem
-                        </Link>
-                    </div>
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        Problem Set
+                    </h1>
+                    <Link
+                        to="/problems/create"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                        Create Problem
+                    </Link>
                 </div>
-
-                {/* Error Message */}
-                {error && (
-                    <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-                        {error}
-                    </div>
-                )}
 
                 {/* Filters */}
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Search Problems
-                            </label>
+                <div className="bg-white rounded-lg shadow mb-6">
+                    <div className="p-4 flex flex-wrap gap-4">
+                        <div className="flex-1 min-w-[200px]">
                             <input
                                 type="text"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search by title or description..."
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                placeholder="Search problems..."
+                                className="w-full px-4 py-2 border rounded-lg"
+                                value={filters.search}
+                                onChange={(e) =>
+                                    setFilters((prev) => ({
+                                        ...prev,
+                                        search: e.target.value,
+                                    }))
+                                }
                             />
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Difficulty
-                            </label>
-                            <select
-                                value={selectedDifficulty}
-                                onChange={(e) =>
-                                    setSelectedDifficulty(e.target.value)
-                                }
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            >
-                                <option value="All">All Difficulties</option>
-                                <option value="Easy">Easy</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Hard">Hard</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Tag
-                            </label>
-                            <select
-                                value={selectedTag}
-                                onChange={(e) => setSelectedTag(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            >
-                                <option value="All">All Tags</option>
-                                {allTags.map((tag) => (
-                                    <option key={tag} value={tag}>
-                                        {tag}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div className="flex items-end">
-                            <div className="text-sm text-slate-600">
-                                Showing {filteredProblems.length} of{" "}
-                                {problems.length} problems
-                            </div>
-                        </div>
+                        <select
+                            className="px-4 py-2 border rounded-lg"
+                            value={filters.difficulty}
+                            onChange={(e) =>
+                                setFilters((prev) => ({
+                                    ...prev,
+                                    difficulty: e.target.value,
+                                }))
+                            }
+                        >
+                            <option value="all">All Difficulties</option>
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                        <select
+                            className="px-4 py-2 border rounded-lg"
+                            value={filters.status}
+                            onChange={(e) =>
+                                setFilters((prev) => ({
+                                    ...prev,
+                                    status: e.target.value,
+                                }))
+                            }
+                        >
+                            <option value="all">All Status</option>
+                            <option value="Solved">Solved</option>
+                            <option value="Attempted">Attempted</option>
+                            <option value="Unsolved">Unsolved</option>
+                        </select>
                     </div>
                 </div>
 
-                {/* Problems List */}
-                {filteredProblems.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg
-                                className="w-8 h-8 text-slate-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                />
-                            </svg>
-                        </div>
-                        <h3 className="text-lg font-medium text-slate-900 mb-2">
-                            No problems found
-                        </h3>
-                        <p className="text-slate-600 mb-4">
-                            {problems.length === 0
-                                ? "No problems have been created yet."
-                                : "Try adjusting your search criteria."}
-                        </p>
-                        {problems.length === 0 && (
-                            <Link
-                                to="/create-problem"
-                                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                                Create the first problem
-                            </Link>
-                        )}
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {filteredProblems.map((problem) => (
-                            <div
-                                key={problem._id}
-                                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow"
-                            >
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-3 mb-2">
-                                            <h3 className="text-xl font-semibold text-slate-900 hover:text-blue-600 transition-colors">
-                                                <Link
-                                                    to={`/problems/${problem._id}`}
-                                                >
-                                                    {problem.title}
-                                                </Link>
-                                            </h3>
-                                            <span
-                                                className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(
-                                                    problem.difficulty
-                                                )}`}
-                                            >
-                                                {problem.difficulty}
-                                            </span>
-                                        </div>
-
-                                        <p className="text-slate-600 mb-4 line-clamp-2">
-                                            {problem.description.length > 200
-                                                ? `${problem.description.substring(
-                                                      0,
-                                                      200
-                                                  )}...`
-                                                : problem.description}
-                                        </p>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {problem.tags
-                                                .slice(0, 3)
-                                                .map((tag) => (
-                                                    <span
-                                                        key={tag}
-                                                        className="px-2 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-medium"
-                                                    >
-                                                        {tag}
-                                                    </span>
-                                                ))}
-                                            {problem.tags.length > 3 && (
-                                                <span className="px-2 py-1 bg-slate-100 text-slate-500 rounded-md text-xs">
-                                                    +{problem.tags.length - 3}{" "}
-                                                    more
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="ml-6 flex flex-col items-end space-y-2">
+                {/* Problems Table */}
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Title
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Difficulty
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acceptance
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredProblems.map((problem) => (
+                                <tr
+                                    key={problem._id}
+                                    className="hover:bg-gray-50"
+                                >
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {getStatusIcon(problem.status)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
                                         <Link
                                             to={`/problems/${problem._id}`}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                            className="text-blue-600 hover:text-blue-800 font-medium"
                                         >
-                                            Solve
+                                            {problem.title}
                                         </Link>
-                                        <div className="text-xs text-slate-500">
-                                            {problem.sampleTestCases?.length ||
-                                                0}{" "}
-                                            test cases
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span
+                                            className={`font-medium ${getDifficultyColor(
+                                                problem.difficulty
+                                            )}`}
+                                        >
+                                            {problem.difficulty}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {problem.acceptanceRate || "N/A"}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+
+                    {filteredProblems.length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                            No problems found matching your criteria
+                        </div>
+                    )}
+                </div>
             </div>
         </Layout>
     );
