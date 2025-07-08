@@ -21,6 +21,9 @@ const ApiRoutes = {
         executeTests: "/api/v1/compiler/execute-tests",
         languages: "/api/v1/compiler/languages",
     },
+    ai: {
+        reviewCode: "/api/v1/ai/review-code",
+    },
 };
 
 export default ApiRoutes;

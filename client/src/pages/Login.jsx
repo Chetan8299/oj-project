@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import authService from "../services/authService";
-import { useApiCall } from "../hooks";
+import { useDispatch, useSelector } from "react-redux";
 import { Layout } from "../components";
-import { loginSuccess } from "../store/slices/userSlice";
+import { loginUser } from "../store/slices/userSlice";
 
 const Login = () => {
     const [formData, setFormData] = useState({
@@ -13,7 +11,7 @@ const Login = () => {
         password: "",
     });
 
-    const { loading, error, execute, setError } = useApiCall();
+    const { loading, error } = useSelector((state) => state.user);
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const handleChange = (e) => {
@@ -26,17 +24,16 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        await execute(
-            () => authService.login(formData.email, formData.password),
-            (response) => {
-                if (response.success) {
-                    dispatch(loginSuccess(response.data));
-                    navigate("/");
-                } else {
-                    setError(response.message);
-                }
-            }
+        const result = await dispatch(
+            loginUser({
+                email: formData.email,
+                password: formData.password,
+            })
         );
+
+        if (loginUser.fulfilled.match(result)) {
+            navigate("/");
+        }
     };
 
     return (

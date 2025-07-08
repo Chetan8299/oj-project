@@ -1,8 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { logout } from "../store/slices/userSlice";
-import authService from "../services/authService";
+import { logoutUser } from "../store/slices/userSlice";
 
 const Navbar = () => {
     const { isAuthenticated, user } = useSelector((state) => state.user);
@@ -10,16 +9,8 @@ const Navbar = () => {
     const navigate = useNavigate();
 
     const handleLogout = async () => {
-        try {
-            await authService.logout();
-            dispatch(logout());
-            navigate("/");
-        } catch (error) {
-            console.error("Logout error:", error);
-            // Even if the API call fails, clear the local state
-            dispatch(logout());
-            navigate("/");
-        }
+        await dispatch(logoutUser());
+        navigate("/");
     };
 
     return (

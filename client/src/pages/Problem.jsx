@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Layout } from "../components";
+import { Layout, CodeEditor } from "../components";
 import { useApiCall } from "../hooks";
 import problemService from "../services/problemService";
 import * as compilerService from "../services/compilerService";
+import aiService from "../services/aiService";
+import ReactMarkdown from "react-markdown";
 
 const Problem = () => {
     const { id } = useParams();
@@ -17,10 +19,13 @@ const Problem = () => {
     const [submissions, setSubmissions] = useState([]);
     const [loadingSubmissions, setLoadingSubmissions] = useState(false);
     const [leftActiveTab, setLeftActiveTab] = useState("description"); // description, submissions
-    const [rightActiveTab, setRightActiveTab] = useState("code"); // code, result
+    const [rightActiveTab, setRightActiveTab] = useState("code"); // code, result, review
     const [selectedSubmission, setSelectedSubmission] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const [reviewResult, setReviewResult] = useState(null);
+    const [editorTheme, setEditorTheme] = useState("vs-dark");
 
     const languages = [
         { value: "js", label: "JavaScript" },
@@ -128,6 +133,7 @@ const Problem = () => {
                 output: result.output,
                 error: result.error,
             });
+            setRightActiveTab("result");
         } catch (error) {
             setExecutionResult({
                 success: false,
@@ -135,6 +141,7 @@ const Problem = () => {
                     error.response?.data?.message || "Failed to execute code",
                 error: error.response?.data?.error,
             });
+            setRightActiveTab("result");
         } finally {
             setExecuting(false);
         }
@@ -169,6 +176,7 @@ const Problem = () => {
                     summary: result.data.summary,
                     passed: result.data.passed,
                 });
+                setRightActiveTab("result");
 
                 // Refresh submissions after successful submission
                 const submissionsResponse =
@@ -181,6 +189,7 @@ const Problem = () => {
                     success: false,
                     message: result.message,
                 });
+                setRightActiveTab("result");
             }
         } catch (error) {
             setExecutionResult({
@@ -189,6 +198,7 @@ const Problem = () => {
                     error.response?.data?.message ||
                     "Failed to submit solution",
             });
+            setRightActiveTab("result");
         } finally {
             setExecuting(false);
         }
@@ -197,6 +207,35 @@ const Problem = () => {
     const handleViewCode = (submission) => {
         setSelectedSubmission(submission);
         setIsModalOpen(true);
+    };
+
+    const handleGetReview = async () => {
+        if (!code.trim()) {
+            alert("Please write some code first!");
+            return;
+        }
+
+        if (!isAuthenticated) {
+            alert("Please login to use the AI code review feature!");
+            return;
+        }
+
+        setReviewLoading(true);
+        setReviewResult(null);
+
+        try {
+            const result = await aiService.reviewCode(code, selectedLanguage);
+            if (result.success) {
+                setReviewResult(result.data.review);
+                setRightActiveTab("review");
+            } else {
+                alert(result.message || "Failed to get code review");
+            }
+        } catch (error) {
+            alert(error.message || "Failed to get code review");
+        } finally {
+            setReviewLoading(false);
+        }
     };
 
     if (loading) {
@@ -261,7 +300,7 @@ const Problem = () => {
                     </div>
                 </div>
 
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {/* Left Column - Problem Description */}
                         <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -507,6 +546,18 @@ const Problem = () => {
                                         >
                                             Results
                                         </button>
+                                        <button
+                                            onClick={() =>
+                                                setRightActiveTab("review")
+                                            }
+                                            className={`px-4 py-3 text-sm font-medium border-b-2 ${
+                                                rightActiveTab === "review"
+                                                    ? "border-blue-500 text-blue-600"
+                                                    : "border-transparent text-gray-500 hover:text-gray-700"
+                                            }`}
+                                        >
+                                            AI Review
+                                        </button>
                                     </nav>
                                 </div>
 
@@ -538,16 +589,75 @@ const Problem = () => {
                                             </div>
 
                                             <div className="mb-4">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Code
-                                                </label>
-                                                <textarea
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        Code Editor
+                                                    </label>
+                                                    <div className="flex items-center space-x-4">
+                                                        <button
+                                                            onClick={() =>
+                                                                setEditorTheme(
+                                                                    editorTheme ===
+                                                                        "vs-dark"
+                                                                        ? "light"
+                                                                        : "vs-dark"
+                                                                )
+                                                            }
+                                                            className="flex items-center space-x-1 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                                                        >
+                                                            {editorTheme ===
+                                                            "vs-dark" ? (
+                                                                <>
+                                                                    <svg
+                                                                        className="w-3 h-3"
+                                                                        fill="currentColor"
+                                                                        viewBox="0 0 20 20"
+                                                                    >
+                                                                        <path
+                                                                            fillRule="evenodd"
+                                                                            d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                                                                            clipRule="evenodd"
+                                                                        />
+                                                                    </svg>
+                                                                    <span>
+                                                                        Light
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <svg
+                                                                        className="w-3 h-3"
+                                                                        fill="currentColor"
+                                                                        viewBox="0 0 20 20"
+                                                                    >
+                                                                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                                                                    </svg>
+                                                                    <span>
+                                                                        Dark
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                        <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                                            <span>
+                                                                Ctrl+Enter to
+                                                                run
+                                                            </span>
+                                                            <span>•</span>
+                                                            <span>
+                                                                Ctrl+Shift+Enter
+                                                                to submit
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <CodeEditor
                                                     value={code}
-                                                    onChange={(e) =>
-                                                        setCode(e.target.value)
-                                                    }
-                                                    className="w-full h-96 font-mono text-sm rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    placeholder="Write your code here..."
+                                                    onChange={setCode}
+                                                    language={selectedLanguage}
+                                                    height="400px"
+                                                    theme={editorTheme}
+                                                    className="focus-within:ring-2 focus-within:ring-blue-500"
                                                 />
                                             </div>
 
@@ -560,35 +670,49 @@ const Problem = () => {
                                                     onChange={(e) =>
                                                         setInput(e.target.value)
                                                     }
-                                                    className="w-full h-24 font-mono text-sm rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                    placeholder="Enter custom input..."
+                                                    className="w-full h-24 font-mono text-sm rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"
+                                                    placeholder="Enter custom input for testing..."
+                                                    spellCheck="false"
                                                 />
                                             </div>
 
-                                            <div className="flex gap-4">
+                                            <div className="flex justify-between mt-4">
+                                                <div className="space-x-2">
+                                                    <button
+                                                        onClick={handleRunCode}
+                                                        disabled={executing}
+                                                        data-action="run-code"
+                                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                                                    >
+                                                        {executing
+                                                            ? "Running..."
+                                                            : "Run Code"}
+                                                    </button>
+                                                    <button
+                                                        onClick={
+                                                            handleSubmitSolution
+                                                        }
+                                                        disabled={executing}
+                                                        data-action="submit-code"
+                                                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                                                    >
+                                                        {executing
+                                                            ? "Submitting..."
+                                                            : "Submit"}
+                                                    </button>
+                                                </div>
                                                 <button
-                                                    onClick={handleRunCode}
-                                                    disabled={executing}
-                                                    className="flex-1 bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-50"
+                                                    onClick={handleGetReview}
+                                                    disabled={reviewLoading}
+                                                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
                                                 >
-                                                    {executing
-                                                        ? "Running..."
-                                                        : "Run Code"}
-                                                </button>
-                                                <button
-                                                    onClick={
-                                                        handleSubmitSolution
-                                                    }
-                                                    disabled={executing}
-                                                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                                                >
-                                                    {executing
-                                                        ? "Submitting..."
-                                                        : "Submit"}
+                                                    {reviewLoading
+                                                        ? "Getting Review..."
+                                                        : "Get AI Review"}
                                                 </button>
                                             </div>
                                         </>
-                                    ) : (
+                                    ) : rightActiveTab === "result" ? (
                                         /* Execution Result Tab */
                                         <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
                                             {executionResult ? (
@@ -746,6 +870,39 @@ const Problem = () => {
                                                 </div>
                                             )}
                                         </div>
+                                    ) : (
+                                        // AI Review Tab
+                                        <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                                            {reviewResult ? (
+                                                <div className="bg-white rounded-lg">
+                                                    <div className="prose max-w-none">
+                                                        <div className="markdown-content space-y-4 text-gray-700 overflow-x-auto">
+                                                            <ReactMarkdown className="whitespace-pre-wrap break-words">
+                                                                {reviewResult
+                                                                    .replace(
+                                                                        /\\n/g,
+                                                                        "\n"
+                                                                    )
+                                                                    .replace(
+                                                                        /^```markdown\n/,
+                                                                        ""
+                                                                    )
+                                                                    .replace(
+                                                                        /\n```$/,
+                                                                        ""
+                                                                    )}
+                                                            </ReactMarkdown>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <p className="text-center text-gray-500">
+                                                    No AI review available yet.
+                                                    Submit your code to get
+                                                    feedback.
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -790,10 +947,17 @@ const Problem = () => {
                             {/* Code content */}
                             <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                                 <div className="w-full">
-                                    <div className="bg-gray-50 rounded-lg p-4 overflow-x-auto">
-                                        <pre className="text-sm font-mono text-gray-800 whitespace-pre">
-                                            {selectedSubmission.code}
-                                        </pre>
+                                    <div className="h-[calc(100vh-300px)]">
+                                        <CodeEditor
+                                            value={selectedSubmission.code}
+                                            language={
+                                                selectedSubmission.language
+                                            }
+                                            height="100%"
+                                            theme={editorTheme}
+                                            readOnly={true}
+                                            className="h-full"
+                                        />
                                     </div>
                                 </div>
                             </div>
