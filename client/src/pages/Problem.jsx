@@ -876,8 +876,8 @@ const Problem = () => {
                                             {reviewResult ? (
                                                 <div className="bg-white rounded-lg">
                                                     <div className="prose max-w-none">
-                                                        <div className="markdown-content space-y-4 text-gray-700 overflow-x-auto">
-                                                            <ReactMarkdown className="whitespace-pre-wrap break-words">
+                                                        <div className="markdown-content space-y-4 text-gray-700 overflow-x-auto whitespace-pre-wrap break-words">
+                                                            <ReactMarkdown>
                                                                 {reviewResult
                                                                     .replace(
                                                                         /\\n/g,
