@@ -3,6 +3,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import { Problem } from "../models/problem.model.js";
 import { Submission } from "../models/submission.model.js";
+import constraintParser from "../utils/constraintParser.js";
 import axios from "axios";
 
 const COMPILER_API = process.env.COMPILER_API || "http://localhost:3001";
@@ -32,6 +33,29 @@ const problemController = {
 
         const user = req.user;
 
+        // Parse constraints into structured format
+        const structuredConstraints = constraintParser.parseConstraints(
+            constraints,
+            difficulty
+        );
+
+        // Validate test cases against constraints
+        const allTestCases = [...sampleTestCases, ...(hiddenTestCases || [])];
+        for (const testCase of allTestCases) {
+            const validation = constraintParser.validateInput(
+                testCase.input,
+                structuredConstraints.inputConstraints
+            );
+            if (!validation.valid) {
+                throw new ApiError(
+                    400,
+                    `Test case constraint violation: ${validation.errors.join(
+                        ", "
+                    )}`
+                );
+            }
+        }
+
         // For now, allow any authenticated user to create problems
         // Later you can add role-based authorization
 
@@ -40,6 +64,7 @@ const problemController = {
             description,
             sampleTestCases,
             constraints,
+            structuredConstraints,
             difficulty,
             tags,
             hiddenTestCases,
@@ -58,11 +83,96 @@ const problemController = {
     }),
 
     getProblems: asyncHandler(async (req, res) => {
-        const problems = await Problem.find();
+        const {
+            page = 1,
+            limit = 10,
+            difficulty,
+            tags,
+            search,
+            sortBy = "createdAt",
+            sortOrder = "desc",
+        } = req.query;
+
+        // Build query object
+        const query = {};
+
+        // Filter by difficulty
+        if (difficulty && difficulty !== "all") {
+            query.difficulty = difficulty;
+        }
+
+        // Filter by tags
+        if (tags) {
+            const tagArray = tags.split(",").map((tag) => tag.trim());
+            query.tags = { $in: tagArray };
+        }
+
+        // Search in title and description
+        if (search) {
+            query.$or = [
+                { title: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Build sort object
+        const sort = {};
+        sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+        // Fetch problems with pagination
+        const [problems, totalProblems] = await Promise.all([
+            Problem.find(query)
+                .sort(sort)
+                .skip(skip)
+                .limit(parseInt(limit))
+                .select("-hiddenTestCases"), // Exclude hidden test cases from public listing
+            Problem.countDocuments(query),
+        ]);
+
+        // Calculate pagination metadata
+        const totalPages = Math.ceil(totalProblems / parseInt(limit));
+        const hasNextPage = parseInt(page) < totalPages;
+        const hasPrevPage = parseInt(page) > 1;
+
+        const paginationData = {
+            problems,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalProblems,
+                limit: parseInt(limit),
+                hasNextPage,
+                hasPrevPage,
+            },
+        };
+
         return res
             .status(200)
             .json(
-                new ApiResponse(200, problems, "Problems fetched successfully")
+                new ApiResponse(
+                    200,
+                    paginationData,
+                    "Problems fetched successfully"
+                )
+            );
+    }),
+
+    getMyProblems: asyncHandler(async (req, res) => {
+        const user = req.user;
+        const problems = await Problem.find({ setter: user._id }).sort({
+            createdAt: -1,
+        });
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    problems,
+                    "My problems fetched successfully"
+                )
             );
     }),
 
@@ -109,6 +219,29 @@ const problemController = {
             );
         }
 
+        // Parse constraints into structured format
+        const structuredConstraints = constraintParser.parseConstraints(
+            constraints,
+            difficulty
+        );
+
+        // Validate test cases against constraints
+        const allTestCases = [...sampleTestCases, ...(hiddenTestCases || [])];
+        for (const testCase of allTestCases) {
+            const validation = constraintParser.validateInput(
+                testCase.input,
+                structuredConstraints.inputConstraints
+            );
+            if (!validation.valid) {
+                throw new ApiError(
+                    400,
+                    `Test case constraint violation: ${validation.errors.join(
+                        ", "
+                    )}`
+                );
+            }
+        }
+
         const updatedProblem = await Problem.findByIdAndUpdate(
             id,
             {
@@ -116,6 +249,7 @@ const problemController = {
                 description,
                 sampleTestCases,
                 constraints,
+                structuredConstraints,
                 difficulty,
                 tags,
                 hiddenTestCases,
@@ -153,6 +287,28 @@ const problemController = {
             throw new ApiError(404, "Problem not found");
         }
 
+        // Get structured constraints or use defaults
+        const constraints = problem.structuredConstraints || {
+            timeLimit: 2000,
+            memoryLimit: 256,
+            inputConstraints: [],
+        };
+
+        // Validate sample test case inputs against constraints (optional validation)
+        for (const testCase of problem.sampleTestCases) {
+            const validation = constraintParser.validateInput(
+                testCase.input,
+                constraints.inputConstraints
+            );
+            if (!validation.valid) {
+                console.warn(
+                    `Sample test case validation warning: ${validation.errors.join(
+                        ", "
+                    )}`
+                );
+            }
+        }
+
         // First run sample test cases
         try {
             const sampleTestResponse = await axios.post(
@@ -161,6 +317,8 @@ const problemController = {
                     code,
                     language,
                     testCases: problem.sampleTestCases,
+                    timeLimit: constraints.timeLimit,
+                    memoryLimit: constraints.memoryLimit,
                 }
             );
 
@@ -172,14 +330,29 @@ const problemController = {
                 sampleResult.summary.passed !== sampleResult.summary.total
             ) {
                 // Save failed submission
+                // Determine status based on result and verdicts
+                let status = "Wrong Answer";
+                if (!sampleResult.success) {
+                    status = "Compilation Error";
+                } else {
+                    // Check for constraint violations in results
+                    const hasTimeLimit = sampleResult.results?.some(
+                        (r) => r.verdict === "Time Limit Exceeded"
+                    );
+                    const hasMemoryLimit = sampleResult.results?.some(
+                        (r) => r.verdict === "Memory Limit Exceeded"
+                    );
+
+                    if (hasTimeLimit) status = "Time Limit Exceeded";
+                    else if (hasMemoryLimit) status = "Memory Limit Exceeded";
+                }
+
                 const submission = await Submission.create({
                     problem: id,
                     user: user._id,
                     code,
                     language,
-                    status: !sampleResult.success
-                        ? "Compilation Error"
-                        : "Wrong Answer",
+                    status,
                     testCasesPassed: sampleResult.summary.passed || 0,
                     totalTestCases: problem.sampleTestCases.length,
                     executionTime: Math.max(
@@ -219,6 +392,8 @@ const problemController = {
                     code,
                     language,
                     testCases: problem.hiddenTestCases,
+                    timeLimit: constraints.timeLimit,
+                    memoryLimit: constraints.memoryLimit,
                 }
             );
 
@@ -247,6 +422,23 @@ const problemController = {
             const allTestsPassed =
                 result.summary.passed === result.summary.total;
 
+            // Check for constraint violations in hidden test results
+            const hasTimeLimit = result.results?.some(
+                (r) => r.verdict === "Time Limit Exceeded"
+            );
+            const hasMemoryLimit = result.results?.some(
+                (r) => r.verdict === "Memory Limit Exceeded"
+            );
+
+            let finalStatus = "Wrong Answer";
+            if (hasTimeLimit) {
+                finalStatus = "Time Limit Exceeded";
+            } else if (hasMemoryLimit) {
+                finalStatus = "Memory Limit Exceeded";
+            } else if (allTestsPassed) {
+                finalStatus = "Accepted";
+            }
+
             // Calculate execution stats (use max from both sample and hidden tests)
             const maxExecutionTime = Math.max(
                 ...result.results.map((r) => r.executionTime || 0),
@@ -263,7 +455,7 @@ const problemController = {
                 user: user._id,
                 code,
                 language,
-                status: allTestsPassed ? "Accepted" : "Wrong Answer",
+                status: finalStatus,
                 testCasesPassed: result.summary.passed,
                 totalTestCases: result.summary.total,
                 executionTime: maxExecutionTime,
@@ -281,8 +473,12 @@ const problemController = {
                         submissionId: submission._id,
                         isSampleTest: false,
                     },
-                    allTestsPassed
+                    finalStatus === "Accepted"
                         ? "All test cases passed!"
+                        : finalStatus === "Time Limit Exceeded"
+                        ? `Time limit exceeded (${constraints.timeLimit}ms)`
+                        : finalStatus === "Memory Limit Exceeded"
+                        ? `Memory limit exceeded (${constraints.memoryLimit}MB)`
                         : `Passed ${result.summary.passed} out of ${result.summary.total} hidden test cases`
                 )
             );
@@ -330,6 +526,38 @@ const problemController = {
                     "Submissions fetched successfully"
                 )
             );
+    }),
+
+    deleteProblem: asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const user = req.user;
+
+        const problem = await Problem.findById(id);
+
+        if (!problem) {
+            throw new ApiError(404, "Problem not found");
+        }
+
+        // Check if user has permission to delete (admin or problem setter)
+        if (
+            user.role !== "admin" &&
+            problem.setter.toString() !== user._id.toString()
+        ) {
+            throw new ApiError(
+                403,
+                "You are not authorized to delete this problem"
+            );
+        }
+
+        // Delete all submissions related to this problem
+        await Submission.deleteMany({ problem: id });
+
+        // Delete the problem
+        await Problem.findByIdAndDelete(id);
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, null, "Problem deleted successfully"));
     }),
 };
 

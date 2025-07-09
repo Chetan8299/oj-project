@@ -7,12 +7,16 @@ const ApiRoutes = {
     user: {
         getUser: "/api/v1/users/user",
         updateUser: "/api/v1/users/user",
+        getAllUsers: "/api/v1/users/admin/users",
+        updateUserRole: (userId) => `/api/v1/users/admin/users/${userId}/role`,
     },
     problems: {
         create: "/api/v1/problems",
         getAll: "/api/v1/problems",
+        getMy: "/api/v1/problems/my-problems",
         getById: (id) => `/api/v1/problems/${id}`,
         update: (id) => `/api/v1/problems/${id}`,
+        delete: (id) => `/api/v1/problems/${id}`,
         submit: (id) => `/api/v1/problems/${id}/submit`,
         getSubmissions: (id) => `/api/v1/problems/${id}/submissions`,
     },

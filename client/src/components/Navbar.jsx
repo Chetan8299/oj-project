@@ -21,9 +21,13 @@ const Navbar = () => {
                     <div className="flex items-center">
                         <Link
                             to="/"
-                            className="text-2xl font-bold text-slate-800 hover:text-slate-900 transition-colors"
+                            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
                         >
-                            AlgoVerse
+                            <img
+                                src="/logo.png"
+                                alt="AlgoVerse"
+                                className="h-8 w-auto"
+                            />
                         </Link>
                     </div>
 
@@ -43,18 +47,24 @@ const Navbar = () => {
                         </Link>
                         {isAuthenticated && (
                             <>
-                                {/* <Link
-                                    to="/submissions"
+                                <Link
+                                    to="/my-problems"
                                     className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                                 >
-                                    My Submissions
-                                </Link> */}
+                                    My Problems
+                                </Link>
+                                <Link
+                                    to="/create-problem"
+                                    className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                                >
+                                    Create Problem
+                                </Link>
                                 {user?.role === "admin" && (
                                     <Link
-                                        to="/create-problem"
+                                        to="/admin/users"
                                         className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                                     >
-                                        Create Problem
+                                        Manage Users
                                     </Link>
                                 )}
                             </>

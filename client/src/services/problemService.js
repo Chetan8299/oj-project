@@ -9,8 +9,13 @@ const problemService = {
         return response.data;
     },
 
-    getAllProblems: async () => {
-        const response = await axios.get(ApiRoutes.problems.getAll);
+    getAllProblems: async (params = {}) => {
+        const response = await axios.get(ApiRoutes.problems.getAll, { params });
+        return response.data;
+    },
+
+    getMyProblems: async () => {
+        const response = await axios.get(ApiRoutes.problems.getMy);
         return response.data;
     },
 
@@ -24,6 +29,11 @@ const problemService = {
             ApiRoutes.problems.update(id),
             problemData
         );
+        return response.data;
+    },
+
+    deleteProblem: async (id) => {
+        const response = await axios.delete(ApiRoutes.problems.delete(id));
         return response.data;
     },
 

@@ -10,7 +10,7 @@
 }
 
 .markdown-content h3 {
-  @apply text-md font-medium mb-2 text-gray-700;
+  @apply text-base font-medium mb-2 text-gray-700;
 }
 
 .markdown-content p {

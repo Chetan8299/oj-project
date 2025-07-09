@@ -1,13 +1,15 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "../components";
 import { useApiCall } from "../hooks";
 import problemService from "../services/problemService";
 
-const CreateProblem = () => {
+const EditProblem = () => {
     const navigate = useNavigate();
+    const { id } = useParams();
     const { loading, error, execute } = useApiCall();
     const [successMessage, setSuccessMessage] = useState("");
+    const [loadingProblem, setLoadingProblem] = useState(true);
 
     const [formData, setFormData] = useState({
         title: "",
@@ -21,11 +23,62 @@ const CreateProblem = () => {
         hiddenOutputs: "",
     });
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
-        setSuccessMessage("");
+    // Helper function to convert test case arrays back to strings
+    const testCasesToString = (testCases) => {
+        if (!testCases || testCases.length === 0) return "";
+        return testCases.map((tc) => tc.input || tc.output).join("\n---\n");
     };
+
+    // Fetch existing problem data
+    useEffect(() => {
+        const fetchProblem = async () => {
+            setLoadingProblem(true);
+            try {
+                const response = await problemService.getProblemById(id);
+                if (response.success) {
+                    const problem = response.data;
+                    setFormData({
+                        title: problem.title || "",
+                        description: problem.description || "",
+                        constraints: problem.constraints || "",
+                        difficulty: problem.difficulty || "Easy",
+                        tags: problem.tags ? problem.tags.join(", ") : "",
+                        sampleInputs: testCasesToString(
+                            problem.sampleTestCases?.map((tc) => ({
+                                input: tc.input,
+                            })) || []
+                        ),
+                        sampleOutputs: testCasesToString(
+                            problem.sampleTestCases?.map((tc) => ({
+                                output: tc.output,
+                            })) || []
+                        ),
+                        hiddenInputs: testCasesToString(
+                            problem.hiddenTestCases?.map((tc) => ({
+                                input: tc.input,
+                            })) || []
+                        ),
+                        hiddenOutputs: testCasesToString(
+                            problem.hiddenTestCases?.map((tc) => ({
+                                output: tc.output,
+                            })) || []
+                        ),
+                    });
+                } else {
+                    navigate("/problems");
+                }
+            } catch (error) {
+                console.error("Failed to fetch problem:", error);
+                navigate("/problems");
+            } finally {
+                setLoadingProblem(false);
+            }
+        };
+
+        if (id) {
+            fetchProblem();
+        }
+    }, [id, navigate]);
 
     // Helper function to parse string inputs/outputs into test case arrays
     const parseTestCases = (inputs, outputs) => {
@@ -49,6 +102,12 @@ const CreateProblem = () => {
         }
 
         return testCases;
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+        setSuccessMessage("");
     };
 
     const handleSubmit = async (e) => {
@@ -77,17 +136,27 @@ const CreateProblem = () => {
         delete problemData.hiddenOutputs;
 
         await execute(
-            () => problemService.createProblem(problemData),
+            () => problemService.updateProblem(id, problemData),
             (response) => {
                 if (response.success) {
-                    setSuccessMessage("Problem created successfully!");
+                    setSuccessMessage("Problem updated successfully!");
                     setTimeout(() => {
-                        navigate("/");
+                        navigate(`/problems/${id}`);
                     }, 2000);
                 }
             }
         );
     };
+
+    if (loadingProblem) {
+        return (
+            <Layout>
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+            </Layout>
+        );
+    }
 
     return (
         <Layout>
@@ -95,10 +164,10 @@ const CreateProblem = () => {
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                        Create Problem
+                        Edit Problem
                     </h1>
                     <p className="text-slate-600">
-                        Add a new coding problem to the platform
+                        Update the coding problem details
                     </p>
                 </div>
 
@@ -219,18 +288,11 @@ const CreateProblem = () => {
                                     name="constraints"
                                     value={formData.constraints}
                                     onChange={handleChange}
-                                    rows={4}
+                                    rows={3}
                                     className="w-full px-3 py-3 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                    placeholder="1 ≤ n ≤ 10^5&#10;1 ≤ arr[i] ≤ 10^9&#10;Time limit: 2 seconds&#10;Memory limit: 256 MB"
+                                    placeholder="1 ≤ n ≤ 10^5&#10;1 ≤ arr[i] ≤ 10^9"
                                     required
                                 />
-                                <p className="mt-2 text-sm text-slate-600">
-                                    The system will automatically parse
-                                    time/memory limits and input constraints
-                                    from this text. You can specify explicit
-                                    limits like "Time limit: 2 seconds" or
-                                    "Memory limit: 256 MB".
-                                </p>
                             </div>
                         </div>
 
@@ -338,7 +400,7 @@ const CreateProblem = () => {
                         <div className="flex justify-end space-x-4 pt-6 border-t border-slate-200">
                             <button
                                 type="button"
-                                onClick={() => navigate("/")}
+                                onClick={() => navigate(`/problems/${id}`)}
                                 className="px-6 py-3 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                             >
                                 Cancel
@@ -348,7 +410,7 @@ const CreateProblem = () => {
                                 disabled={loading}
                                 className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
-                                {loading ? "Creating..." : "Create Problem"}
+                                {loading ? "Updating..." : "Update Problem"}
                             </button>
                         </div>
                     </form>
@@ -358,4 +420,4 @@ const CreateProblem = () => {
     );
 };
 
-export default CreateProblem;
+export default EditProblem;

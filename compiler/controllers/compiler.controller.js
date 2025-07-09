@@ -28,24 +28,52 @@ const getMemoryUsage = (pid) => {
 const executeWithMetrics = async (command, options, input = null) => {
     const startTime = performance.now();
     let result;
+    let verdict = null;
 
-    if (input) {
-        // Write input to a temporary file
-        const inputFile = path.join(options.cwd, `input_${Date.now()}.txt`);
-        fs.writeFileSync(inputFile, input);
+    try {
+        if (input) {
+            // Write input to a temporary file
+            const inputFile = path.join(options.cwd, `input_${Date.now()}.txt`);
+            fs.writeFileSync(inputFile, input);
 
-        try {
-            result = await execAsync(`${command} < "${inputFile}"`, options);
-        } finally {
-            // Clean up input file
             try {
-                fs.unlinkSync(inputFile);
-            } catch (error) {
-                console.warn("Input file cleanup error:", error.message);
+                result = await execAsync(
+                    `${command} < "${inputFile}"`,
+                    options
+                );
+            } finally {
+                // Clean up input file
+                try {
+                    fs.unlinkSync(inputFile);
+                } catch (error) {
+                    console.warn("Input file cleanup error:", error.message);
+                }
             }
+        } else {
+            result = await execAsync(command, options);
         }
-    } else {
-        result = await execAsync(command, options);
+    } catch (error) {
+        const endTime = performance.now();
+        const executionTime = Math.round(endTime - startTime);
+
+        // Check if it's a timeout error
+        if (error.killed && error.signal === "SIGTERM") {
+            verdict = "Time Limit Exceeded";
+        } else if (
+            error.code === "ENOBUFS" ||
+            error.message.includes("maxBuffer")
+        ) {
+            verdict = "Memory Limit Exceeded";
+        } else {
+            verdict = "Runtime Error";
+        }
+
+        throw {
+            ...error,
+            verdict,
+            executionTime,
+            memory: getMemoryUsage(process.pid),
+        };
     }
 
     const endTime = performance.now();
@@ -58,6 +86,7 @@ const executeWithMetrics = async (command, options, input = null) => {
         ...result,
         executionTime,
         memory,
+        verdict: verdict || "Success",
     };
 };
 
@@ -275,11 +304,12 @@ const compilerController = {
             } catch (execError) {
                 return res.status(200).json({
                     success: false,
-                    message: execError.message,
+                    message: execError.verdict || execError.message,
                     output: "",
                     error: execError.stderr || execError.message,
-                    executionTime: 0,
-                    memory: 0,
+                    verdict: execError.verdict || "Runtime Error",
+                    executionTime: execError.executionTime || 0,
+                    memory: execError.memory || 0,
                 });
             } finally {
                 // Ensure cleanup happens whether execution succeeds or fails
@@ -308,7 +338,13 @@ const compilerController = {
         let language = null;
 
         try {
-            const { code, language: reqLanguage, testCases } = req.body;
+            const {
+                code,
+                language: reqLanguage,
+                testCases,
+                timeLimit = 10000, // Default 10s
+                memoryLimit = 256, // Default 256MB
+            } = req.body;
             language = reqLanguage;
 
             if (!code || !language || !testCases) {
@@ -323,55 +359,109 @@ const compilerController = {
             let totalExecutionTime = 0;
             let maxMemory = 0;
 
+            // Pre-compile the code once for compiled languages
+            const langConfig = LANGUAGES[language];
+            const uniqueId = crypto.randomBytes(8).toString("hex");
+            const timestamp = Date.now();
+            const finalCode = langConfig.template(code);
+
+            const filename =
+                language === "java" && langConfig.getFilename
+                    ? langConfig.getFilename(finalCode, timestamp, uniqueId)
+                    : `temp_${timestamp}_${uniqueId}.${langConfig.extension}`;
+
+            const execTempDir =
+                language === "java"
+                    ? path.join(tempDir, `java_${timestamp}_${uniqueId}`)
+                    : tempDir;
+
+            currentTempDir = execTempDir;
+            currentFilepath = path.join(execTempDir, filename);
+
+            if (!fs.existsSync(execTempDir)) {
+                fs.mkdirSync(execTempDir, { recursive: true });
+            }
+
+            fs.writeFileSync(currentFilepath, finalCode);
+
+            // Compile once for compiled languages
+            let compiledExecutable = null;
+            try {
+                const compileOptions = {
+                    cwd: execTempDir,
+                    timeout: 30000, // 30s for compilation
+                    maxBuffer: 1024 * 1024 * 10, // 10MB for compilation output
+                };
+
+                if (language === "cpp" || language === "c") {
+                    const outputFile = currentFilepath.replace(
+                        `.${language}`,
+                        ".exe"
+                    );
+                    const compileCommand =
+                        language === "cpp"
+                            ? `g++ -o "${outputFile}" "${currentFilepath}"`
+                            : `gcc -o "${outputFile}" "${currentFilepath}"`;
+
+                    await execAsync(compileCommand, compileOptions);
+                    compiledExecutable = outputFile;
+                } else if (language === "java") {
+                    const compileCommand = `javac "${currentFilepath}"`;
+                    await execAsync(compileCommand, compileOptions);
+                    compiledExecutable = path.basename(
+                        currentFilepath,
+                        ".java"
+                    );
+                } else if (language === "rs") {
+                    const outputFile = currentFilepath.replace(".rs", ".exe");
+                    const compileCommand = `rustc "${currentFilepath}" -o "${outputFile}"`;
+                    await execAsync(compileCommand, compileOptions);
+                    compiledExecutable = outputFile;
+                }
+            } catch (compileError) {
+                // Compilation failed
+                return res.status(200).json({
+                    success: false,
+                    message: "Compilation Error",
+                    error: compileError.stderr || compileError.message,
+                    results: [],
+                    summary: {
+                        total: testCases.length,
+                        passed: 0,
+                        failed: testCases.length,
+                        totalExecutionTime: 0,
+                        maxMemory: 0,
+                    },
+                });
+            }
+
+            // Now run each test case
             for (const testCase of testCases) {
                 const { input, output } = testCase;
-                const langConfig = LANGUAGES[language];
-                const uniqueId = crypto.randomBytes(8).toString("hex");
-                const timestamp = Date.now();
-                const finalCode = langConfig.template(code);
-
-                const filename =
-                    language === "java" && langConfig.getFilename
-                        ? langConfig.getFilename(finalCode, timestamp, uniqueId)
-                        : `temp_${timestamp}_${uniqueId}.${langConfig.extension}`;
-
-                const execTempDir =
-                    language === "java"
-                        ? path.join(tempDir, `java_${timestamp}_${uniqueId}`)
-                        : tempDir;
-
-                currentTempDir = execTempDir;
-                currentFilepath = path.join(execTempDir, filename);
-
-                if (!fs.existsSync(execTempDir)) {
-                    fs.mkdirSync(execTempDir, { recursive: true });
-                }
-
-                fs.writeFileSync(currentFilepath, finalCode);
 
                 try {
                     const options = {
                         cwd: execTempDir,
-                        timeout: 10000,
-                        maxBuffer: 1024 * 1024,
+                        timeout: timeLimit,
+                        maxBuffer: memoryLimit * 1024 * 1024, // Convert MB to bytes
                     };
 
                     let executionResult;
-                    if (language === "java") {
-                        const compileCommand = `javac "${currentFilepath}"`;
-                        const className = path.basename(
-                            currentFilepath,
-                            ".java"
-                        );
-                        const runCommand = `java ${className}`;
-
-                        await execAsync(compileCommand, options);
+                    if (compiledExecutable) {
+                        // Use pre-compiled executable
+                        let runCommand;
+                        if (language === "java") {
+                            runCommand = `java ${compiledExecutable}`;
+                        } else {
+                            runCommand = `"${compiledExecutable}"`;
+                        }
                         executionResult = await executeWithMetrics(
                             runCommand,
                             options,
                             input
                         );
                     } else {
+                        // For interpreted languages, use original command
                         const command = langConfig.command(currentFilepath);
                         executionResult = await executeWithMetrics(
                             command,
@@ -389,27 +479,43 @@ const compilerController = {
                     totalExecutionTime += executionResult.executionTime;
                     maxMemory = Math.max(maxMemory, executionResult.memory);
 
+                    // Check for verdict information from executeWithMetrics
+                    const verdict = passed ? "Accepted" : "Wrong Answer";
+
                     results.push({
                         input,
                         expectedOutput,
                         actualOutput: executionOutput,
                         passed,
+                        verdict,
                         executionTime: executionResult.executionTime,
                         memory: executionResult.memory,
                     });
                 } catch (execError) {
+                    // Use verdict from executeWithMetrics if available, otherwise determine it
+                    let verdict = execError.verdict || "Runtime Error";
+                    let errorMessage = execError.stderr || execError.message;
+
+                    // Override message for timeout/memory errors
+                    if (verdict === "Time Limit Exceeded") {
+                        errorMessage = `Time limit of ${timeLimit}ms exceeded`;
+                    } else if (verdict === "Memory Limit Exceeded") {
+                        errorMessage = `Memory limit of ${memoryLimit}MB exceeded`;
+                    }
+
+                    totalExecutionTime += execError.executionTime || 0;
+                    maxMemory = Math.max(maxMemory, execError.memory || 0);
+
                     results.push({
                         input,
                         expectedOutput: output,
-                        actualOutput: execError.stderr || execError.message,
+                        actualOutput: errorMessage,
                         passed: false,
+                        verdict,
                         error: true,
-                        executionTime: 0,
-                        memory: 0,
+                        executionTime: execError.executionTime || 0,
+                        memory: execError.memory || 0,
                     });
-                } finally {
-                    // Clean up after each test case, regardless of success or failure
-                    cleanupFiles(currentFilepath, language, execTempDir);
                 }
             }
 
@@ -425,16 +531,17 @@ const compilerController = {
                 },
             });
         } catch (error) {
-            // If we have filepath and language info, try to clean up
-            if (currentFilepath && language) {
-                cleanupFiles(currentFilepath, language, currentTempDir);
-            }
             return res.status(500).json({
                 success: false,
                 message: error.message,
                 executionTime: 0,
                 memory: 0,
             });
+        } finally {
+            // Clean up all files after all test cases
+            if (currentFilepath && language) {
+                cleanupFiles(currentFilepath, language, currentTempDir);
+            }
         }
     },
 

@@ -5,6 +5,12 @@ import { useApiCall } from "../hooks";
 import problemService from "../services/problemService";
 import * as compilerService from "../services/compilerService";
 import aiService from "../services/aiService";
+import {
+    getVerdictColor,
+    getVerdictIcon,
+    getVerdictDescription,
+    formatConstraints,
+} from "../utils/verdictUtils";
 import ReactMarkdown from "react-markdown";
 
 const Problem = () => {
@@ -282,10 +288,6 @@ const Problem = () => {
                                 </div>
                                 <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
                                     <span>
-                                        Acceptance Rate:{" "}
-                                        {problem.acceptanceRate || "N/A"}
-                                    </span>
-                                    <span>
                                         Submissions: {submissions.length}
                                     </span>
                                 </div>
@@ -354,6 +356,34 @@ const Problem = () => {
                                                     <p className="text-gray-600 whitespace-pre-wrap">
                                                         {problem.constraints}
                                                     </p>
+                                                    {problem.structuredConstraints && (
+                                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                                                            <h4 className="text-sm font-medium text-blue-800 mb-2">
+                                                                Limits
+                                                            </h4>
+                                                            <div className="flex flex-wrap gap-3 text-sm text-blue-700">
+                                                                {formatConstraints(
+                                                                    problem.structuredConstraints
+                                                                )?.map(
+                                                                    (
+                                                                        constraint,
+                                                                        index
+                                                                    ) => (
+                                                                        <span
+                                                                            key={
+                                                                                index
+                                                                            }
+                                                                            className="px-2 py-1 bg-blue-100 rounded"
+                                                                        >
+                                                                            {
+                                                                                constraint
+                                                                            }
+                                                                        </span>
+                                                                    )
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -451,18 +481,20 @@ const Problem = () => {
                                                                         className="hover:bg-gray-50"
                                                                     >
                                                                         <td className="px-6 py-4 whitespace-nowrap">
-                                                                            <span
-                                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                                                    submission.status ===
-                                                                                    "Accepted"
-                                                                                        ? "bg-green-100 text-green-800"
-                                                                                        : "bg-red-100 text-red-800"
-                                                                                }`}
+                                                                            <div
+                                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getVerdictColor(
+                                                                                    submission.status
+                                                                                )}`}
                                                                             >
+                                                                                <span className="mr-1">
+                                                                                    {getVerdictIcon(
+                                                                                        submission.status
+                                                                                    )}
+                                                                                </span>
                                                                                 {
                                                                                     submission.status
                                                                                 }
-                                                                            </span>
+                                                                            </div>
                                                                         </td>
                                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                                             {
@@ -738,6 +770,21 @@ const Problem = () => {
                                                         }
                                                     </p>
 
+                                                    {/* Verdict Description */}
+                                                    {executionResult.verdict && (
+                                                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                            <p className="text-sm text-blue-700">
+                                                                <strong>
+                                                                    What this
+                                                                    means:
+                                                                </strong>{" "}
+                                                                {getVerdictDescription(
+                                                                    executionResult.verdict
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    )}
+
                                                     {executionResult.output && (
                                                         <div className="mt-4">
                                                             <h4 className="font-medium text-gray-900 mb-2">
@@ -816,11 +863,24 @@ const Problem = () => {
                                                                                 <div className="flex items-center gap-2">
                                                                                     <span className="w-2 h-2 rounded-full bg-red-500"></span>
                                                                                     <span className="font-medium">
-                                                                                        Failed
-                                                                                        Test
-                                                                                        Case
+                                                                                        {result.verdict ||
+                                                                                            "Failed Test Case"}
                                                                                     </span>
+                                                                                    {result.verdict && (
+                                                                                        <span className="ml-2">
+                                                                                            {getVerdictIcon(
+                                                                                                result.verdict
+                                                                                            )}
+                                                                                        </span>
+                                                                                    )}
                                                                                 </div>
+                                                                                {result.verdict && (
+                                                                                    <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-sm text-orange-700">
+                                                                                        {getVerdictDescription(
+                                                                                            result.verdict
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
                                                                                 <div className="mt-2 text-sm space-y-2">
                                                                                     <div className="bg-gray-50 p-2 rounded">
                                                                                         <p className="font-medium text-gray-700">
@@ -875,8 +935,8 @@ const Problem = () => {
                                         <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
                                             {reviewResult ? (
                                                 <div className="bg-white rounded-lg">
-                                                    <div className="prose max-w-none">
-                                                        <div className="markdown-content space-y-4 text-gray-700 overflow-x-auto whitespace-pre-wrap break-words">
+                                                    <div className="prose prose-sm max-w-none prose-headings:mb-2 prose-headings:mt-4 prose-p:mb-2 prose-ul:mb-2 prose-ol:mb-2 prose-li:mb-1">
+                                                        <div className="markdown-content text-gray-700 overflow-x-auto">
                                                             <ReactMarkdown>
                                                                 {reviewResult
                                                                     .replace(
@@ -890,7 +950,12 @@ const Problem = () => {
                                                                     .replace(
                                                                         /\n```$/,
                                                                         ""
-                                                                    )}
+                                                                    )
+                                                                    .replace(
+                                                                        /\n\n\n+/g,
+                                                                        "\n\n"
+                                                                    )
+                                                                    .trim()}
                                                             </ReactMarkdown>
                                                         </div>
                                                     </div>

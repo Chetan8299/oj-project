@@ -7,7 +7,10 @@ import {
     Signup,
     Profile,
     CreateProblem,
+    EditProblem,
     Problems,
+    MyProblems,
+    AdminUsers,
     Problem,
 } from "./pages";
 import { initializeAuth } from "./store/slices/userSlice";
@@ -40,7 +43,10 @@ const App = () => {
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/create-problem" element={<CreateProblem />} />
+                <Route path="/edit-problem/:id" element={<EditProblem />} />
                 <Route path="/problems" element={<Problems />} />
+                <Route path="/my-problems" element={<MyProblems />} />
+                <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/problems/:id" element={<Problem />} />
             </Routes>
         </BrowserRouter>

@@ -179,6 +179,135 @@ const userController = {
             .status(200)
             .json(new ApiResponse(200, user, "User updated Successfully"));
     }),
+
+    // Admin endpoints
+    getAllUsers: asyncHandler(async (req, res) => {
+        const user = req.user;
+
+        // Check if user is admin
+        if (user.role !== "admin") {
+            throw new ApiError(
+                403,
+                "Access denied. Admin privileges required."
+            );
+        }
+
+        const {
+            page = 1,
+            limit = 10,
+            role,
+            search,
+            sortBy = "createdAt",
+            sortOrder = "desc",
+        } = req.query;
+
+        // Build query object
+        const query = {};
+
+        // Filter by role
+        if (role && role !== "all") {
+            query.role = role;
+        }
+
+        // Search in username and email
+        if (search) {
+            query.$or = [
+                { username: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        // Calculate pagination
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Build sort object
+        const sort = {};
+        sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+
+        // Fetch users with pagination
+        const [users, totalUsers] = await Promise.all([
+            User.find(query, "-password")
+                .sort(sort)
+                .skip(skip)
+                .limit(parseInt(limit)),
+            User.countDocuments(query),
+        ]);
+
+        // Calculate pagination metadata
+        const totalPages = Math.ceil(totalUsers / parseInt(limit));
+        const hasNextPage = parseInt(page) < totalPages;
+        const hasPrevPage = parseInt(page) > 1;
+
+        const paginationData = {
+            users,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalUsers,
+                limit: parseInt(limit),
+                hasNextPage,
+                hasPrevPage,
+            },
+        };
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    paginationData,
+                    "Users fetched successfully"
+                )
+            );
+    }),
+
+    updateUserRole: asyncHandler(async (req, res) => {
+        const user = req.user;
+        const { userId } = req.params;
+        const { role } = req.body;
+
+        // Check if user is admin
+        if (user.role !== "admin") {
+            throw new ApiError(
+                403,
+                "Access denied. Admin privileges required."
+            );
+        }
+
+        // Validate role
+        if (!["admin", "user", "setter"].includes(role)) {
+            throw new ApiError(
+                400,
+                "Invalid role. Must be admin, user, or setter."
+            );
+        }
+
+        // Don't allow changing own role
+        if (userId === user._id.toString()) {
+            throw new ApiError(400, "Cannot change your own role.");
+        }
+
+        const targetUser = await User.findById(userId);
+        if (!targetUser) {
+            throw new ApiError(404, "User not found");
+        }
+
+        targetUser.role = role;
+        await targetUser.save();
+
+        // Return user without password
+        const updatedUser = await User.findById(userId, "-password");
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    updatedUser,
+                    `User role updated to ${role} successfully`
+                )
+            );
+    }),
 };
 
 export default userController;
