@@ -92,12 +92,12 @@ const executeWithMetrics = async (command, options, input = null) => {
 
 // Supported languages configuration
 const LANGUAGES = {
-    js: {
-        name: "JavaScript",
-        extension: "js",
-        command: (filename) => `node ${filename}`,
-        template: (code) => code,
-    },
+    // js: {
+    //     name: "JavaScript",
+    //     extension: "js",
+    //     command: (filename) => `node ${filename}`,
+    //     template: (code) => code,
+    // },
     py: {
         name: "Python",
         extension: "py",
@@ -177,14 +177,14 @@ const LANGUAGES = {
             return code.includes("fn main") ? code : `fn main() {\n${code}\n}`;
         },
     },
-    php: {
-        name: "PHP",
-        extension: "php",
-        command: (filename) => `php ${filename}`,
-        template: (code) => {
-            return code.includes("<?php") ? code : `<?php\n${code}\n?>`;
-        },
-    },
+    // php: {
+    //     name: "PHP",
+    //     extension: "php",
+    //     command: (filename) => `php ${filename}`,
+    //     template: (code) => {
+    //         return code.includes("<?php") ? code : `<?php\n${code}\n?>`;
+    //     },
+    // },
     rb: {
         name: "Ruby",
         extension: "rb",

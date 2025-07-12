@@ -6,7 +6,6 @@ const reviewCode = async (code, language) => {
         code,
         language,
     });
-    console.log(response.data);
     return response.data;
 };
 

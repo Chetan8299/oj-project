@@ -34,7 +34,7 @@ const Problem = () => {
     const [editorTheme, setEditorTheme] = useState("vs-dark");
 
     const languages = [
-        { value: "js", label: "JavaScript" },
+        // { value: "js", label: "JavaScript" },
         { value: "py", label: "Python" },
         { value: "java", label: "Java" },
         { value: "cpp", label: "C++" },
@@ -42,7 +42,7 @@ const Problem = () => {
         { value: "cs", label: "C#" },
         { value: "go", label: "Go" },
         { value: "rs", label: "Rust" },
-        { value: "php", label: "PHP" },
+        // { value: "php", label: "PHP" },
         { value: "rb", label: "Ruby" },
     ];
 
