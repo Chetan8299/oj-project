@@ -39,7 +39,7 @@ const Problem = () => {
         { value: "java", label: "Java" },
         { value: "cpp", label: "C++" },
         { value: "c", label: "C" },
-        { value: "cs", label: "C#" },
+        // { value: "cs", label: "C#" },
         { value: "go", label: "Go" },
         { value: "rs", label: "Rust" },
         // { value: "php", label: "PHP" },
