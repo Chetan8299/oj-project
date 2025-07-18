@@ -3,7 +3,7 @@ import ApiRoutes from "../routes/routes";
 
 const authService = {
     login: async (email, password) => {
-        const response = await axiosInstance.post(ApiRoutes.auth.login, {
+         const response = await axiosInstance.post(ApiRoutes.auth.login, {
             email,
             password,
         });
