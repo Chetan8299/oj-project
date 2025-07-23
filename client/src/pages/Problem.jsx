@@ -46,6 +46,66 @@ const Problem = () => {
         { value: "rb", label: "Ruby" },
     ];
 
+    const getLanguageTemplate = (language) => {
+        const templates = {
+            cpp: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() { 
+    // Your code here
+    
+    return 0;
+}`,
+            c: `#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main() {
+    // Your code here
+    
+    return 0;
+}`,
+            py: `def solution():
+    # Your code here
+    pass
+
+if __name__ == "__main__":
+    solution()`,
+            java: `import java.util.*;
+import java.io.*;
+
+public class Solution {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        
+        // Your code here
+        
+        sc.close();
+    }
+}`,
+            go: `package main
+
+import (
+    "fmt"
+)
+
+func main() {
+    // Your code here
+    
+}`,
+            rs: `use std::io;
+
+fn main() {
+    // Your code here
+    
+}`,
+            rb: `# Your code here
+
+`,
+        };
+        return templates[language] || "// Start coding here";
+    };
+
     useEffect(() => {
         const fetchProblem = async () => {
             await execute(
@@ -99,6 +159,27 @@ const Problem = () => {
             checkAuth();
         }
     }, [id]);
+
+    // Initialize with template on component mount
+    useEffect(() => {
+        if (!code) {
+            setCode(getLanguageTemplate(selectedLanguage));
+        }
+    }, []);
+
+    // Load template when language changes
+    useEffect(() => {
+        setCode(getLanguageTemplate(selectedLanguage));
+    }, [selectedLanguage]);
+
+    const handleLoadTemplate = () => {
+        const confirmLoad = window.confirm(
+            "This will replace your current code with the template. Are you sure?"
+        );
+        if (confirmLoad) {
+            setCode(getLanguageTemplate(selectedLanguage));
+        }
+    };
 
     const getDifficultyColor = (difficulty) => {
         switch (difficulty) {
@@ -597,9 +678,20 @@ const Problem = () => {
                                     {rightActiveTab === "code" ? (
                                         <>
                                             <div className="mb-4">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                    Language
-                                                </label>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-sm font-medium text-gray-700">
+                                                        Language
+                                                    </label>
+                                                    <button
+                                                        onClick={
+                                                            handleLoadTemplate
+                                                        }
+                                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors"
+                                                        title="Load template for selected language"
+                                                    >
+                                                        Load Template
+                                                    </button>
+                                                </div>
                                                 <select
                                                     value={selectedLanguage}
                                                     onChange={(e) =>
